@@ -237,7 +237,7 @@ public with sharing class SOQL {
 			return 0;
 		}
 		// Use AggregateQuery to get the total revenue
-       AggregateResult[] results = [SELECT SUM(Amount) totalRevenue FROM Opportunity WHERE StageName = :stage OR Amount > 10000];
+       AggregateResult[] results = [SELECT SUM(Amount) totalRevenue FROM Opportunity WHERE StageName = :stage];
 		// Return the total revenue
 		Decimal totalRevenue = 0;
 		if(!results.isEmpty() && results[0].get('totalRevenue') != null){
@@ -413,41 +413,49 @@ public with sharing class SOQL {
 	 * @return A list of Accounts with matching email domains.
 	 */
 	public static List<Account> findAccountsByLeadEmailDomains(Set<Id> leadIds) {
-		if(leadIds == null || leadIds.isEmpty()){
-			return new List<Account>();
-		}
-		// Query the Leads
-		 List<Lead> leadList = [SELECT Email FROM Lead WHERE Id IN :leadIds];
+    if (leadIds == null || leadIds.isEmpty()) {
+        return new List<Account>();
+    }
 
-		// Create a set of email domains from the Leads
-         Set<String> emailDomains = new Set<String>();
+    // 1. Query Leads
+    List<Lead> leadList = [
+        SELECT Email 
+        FROM Lead 
+        WHERE Id IN :leadIds
+    ];
 
-		// Loop through each Lead
-          for(Lead l : leadList){
-			  if(String.isBlank(l.Email) || !l.Email.contains('@')){
-				  continue;
-		  }
-		 
-		// Add the email domain to the set
-         String domain = l.Email.substringAfter('@').toLowerCase();
-		    emailDomains.add(domain);
-	 }
+    // 2. Extract email domains
+    Set<String> emailDomains = new Set<String>();
+    for (Lead l : leadList) {
+        if (String.isBlank(l.Email) || !l.Email.contains('@')) {
+            continue;
+        }
+        String domain = l.Email.substringAfter('@').toLowerCase();
+        emailDomains.add(domain);
+    }
 
-	 if(emailDomains.isEmpty()){
-		 return new List<Account>();
-	 }	
+    if (emailDomains.isEmpty()) {
+        return new List<Account>();
+    }
 
-	 Set<String> emailDomainPatterns = new Set<String>();
+    // 3. Build dynamic WHERE clause for LIKE conditions
+    String whereClause = '';
+    for (String domain : emailDomains) {
+        if (whereClause != '') {
+            whereClause += ' OR ';
+        }
+        whereClause += 'Website LIKE \'%' + String.escapeSingleQuotes(domain) + '%\'';
+    }
 
-        for (String d : emailDomains) {
-              emailDomainPatterns.add('%' + d + '%');
-          }
+    // 4. Build dynamic SOQL query
+    String queryString =
+        'SELECT Id, Name, Website ' +
+        'FROM Account ' +
+        'WHERE Website != null AND (' + whereClause + ')';
 
-		// Query the Accounts
-		List<Account> accountList = [SELECT Id, Name, Website FROM Account 
-		                            WHERE Website != null AND Website LIKE :emailDomainPatterns];
-		return accountList; // Replace null with the variable you used to store the result
-	}
+    // 5. Execute dynamic SOQL
+    return Database.query(queryString);
+}
 
 	/**
 	 * Question 23
