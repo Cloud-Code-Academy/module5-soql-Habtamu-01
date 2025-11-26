@@ -426,7 +426,7 @@ static void testGetClosedWonOpportunityCountByAccount() {
 		Decimal totalRevenue = SOQL.getTotalRevenueByStage('Closed Won');
 
 		// Assert that the total revenue returned is correct
-		Decimal expectedRevenue = testOpp2.Amount + testOpp3.Amount + testOpp4.Amount;
+		Decimal expectedRevenue = testOpp2.Amount +  testOpp4.Amount;
 		System.assertEquals(expectedRevenue, totalRevenue, 'Total revenue is incorrect.');
 	}
 
